@@ -8,6 +8,7 @@ A Python tool to check if your local git repository is ahead, behind, or diverge
 - Checks if your branch is up to date, ahead, behind, or diverged from the remote
 - Supports specifying the repository folder as an argument
 - Easy to test and run with Makefile and uv
+- Caches git fetches for 10 minutes by default for speed (configurable)
 
 ** Requirements
 - Python 3.11+
@@ -27,6 +28,12 @@ make run
 Or specify a repository folder:
 #+begin_src shell
 uv run python -m check_repo_status /path/to/repo
+#+end_src
+
+** Advanced: Caching
+By default, remote fetches are cached for 10 minutes to speed up repeated scans. You can override this by setting the environment variable:
+#+begin_src shell
+export GIT_FETCH_CACHE_SECONDS=30  # cache for 30 seconds
 #+end_src
 
 ** Testing

@@ -1,7 +1,8 @@
 import os
 from git import Repo, GitCommandError, InvalidGitRepositoryError
-from check_repo_status import check_repo_status
+from check_repo_status import check_repo_status, should_fetch, update_fetch_cache
 import sys
+import time
 
 def get_repo_status_summary(repo_path):
     try:
@@ -16,10 +17,17 @@ def get_repo_status_summary(repo_path):
         return None
     remote_name = 'origin'
     remote_branch = f'{remote_name}/{branch.name}'
-    try:
-        repo.remotes[remote_name].fetch()
-    except Exception:
-        return None
+    # Use fetch cache
+    cache_seconds = int(os.environ.get('GIT_FETCH_CACHE_SECONDS', '600'))
+    cache_hit = False
+    if should_fetch(repo_path, remote_name, cache_seconds):
+        try:
+            repo.remotes[remote_name].fetch()
+            update_fetch_cache(repo_path, remote_name)
+        except Exception:
+            return None
+    else:
+        cache_hit = True
     try:
         repo.commit(remote_branch)
     except Exception:
@@ -34,6 +42,7 @@ def get_repo_status_summary(repo_path):
         'behind': behind,
         'staged': staged,
         'unstaged': unstaged,
+        'cached': cache_hit,
     }
 
 def report_multi_repo_status(parent_dir):
@@ -48,15 +57,18 @@ def report_multi_repo_status(parent_dir):
             results.append(status)
     sys.stdout.write(' ' * 80 + '\r')  # Clear the progress line
     sys.stdout.flush()
-    # Print terse table
-    print(f"{'Repo':<20} {'Ahead':<5} {'Behind':<6} {'Staged':<6} {'Unstaged':<8}")
-    print("-" * 50)
+    # Print org-mode table
+    header = '| Repo                | Cached  | Ahead | Behind | Staged | Unstaged |'
+    sep    = '|---------------------+---------+-------+--------+--------+----------|'
+    print(header)
+    print(sep)
     for r in results:
         ahead = str(r['ahead']) if r['ahead'] else "-"
         behind = str(r['behind']) if r['behind'] else "-"
         staged = str(r['staged']) if r['ahead'] and r['staged'] else "-"
         unstaged = str(r['unstaged']) if r['ahead'] and r['unstaged'] else "-"
-        print(f"{r['name']:<20} {ahead:<5} {behind:<6} {staged:<6} {unstaged:<8}")
+        cached = 'cached' if r.get('cached') else ''
+        print(f"| {r['name']:<19} | {cached:<7} | {ahead:<5} | {behind:<6} | {staged:<6} | {unstaged:<8} |")
 
 if __name__ == "__main__":
     import argparse
