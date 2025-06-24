@@ -94,8 +94,8 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
     sys.stdout.write(' ' * 80 + '\r')  # Clear the progress line
     sys.stdout.flush()
     # Print org-mode table
-    header = '| Repo                 | Branch         | Cached  | Ahead | Behind |'
-    sep    = '|----------------------+---------------+---------+-------+--------|'
+    header = '| Repo                 | Branch         | Cached  | Ahead | Behind | Status | Pull                |'
+    sep    = '|----------------------+---------------+---------+-------+--------+--------+---------------------|'
     print(header)
     print(sep)
     for r in results:
@@ -104,15 +104,51 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
         cached = 'cached' if r.get('cached') else ''
         branch = r.get('branch', '-')
         repo_name = r['name'][:20]  # Truncate to 20 chars
-        print(f"| {repo_name:<20} | {branch:<13} | {cached:<7} | {ahead:<5} | {behind:<6} |")
-        if r.get('pull_result') is not None:
-            print(f"  Pull: {r['pull_result']}")
+        # Compose status symbol
+        staged = r['staged']
+        unstaged = r['unstaged']
+        untracked = r['untracked']
+        status = ''
+        if staged and unstaged:
+            status = 'SU'
+        elif staged:
+            status = 'S'
+        elif unstaged:
+            status = 'U'
+        elif untracked:
+            status = '?'
+        else:
+            status = '✔'
+        if untracked and (staged or unstaged):
+            status += '?'
+        # Format pull result for user-friendly output
+        pull_result = r.get('pull_result')
+        pull_col = ''
+        if pull_result is not None:
+            if isinstance(pull_result, list) and pull_result:
+                changes = []
+                for info in pull_result:
+                    if hasattr(info, 'ref') and hasattr(info, 'note'):
+                        changes.append(f"{getattr(info, 'ref', '?')}: {getattr(info, 'note', '')}")
+                if changes:
+                    pull_col = ', '.join(changes)
+                else:
+                    pull_col = 'OK'
+            else:
+                pull_col = 'OK'
+        print(f"| {repo_name:<20} | {branch:<13} | {cached:<7} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} |")
+    # Print legend for Status column
+    print("\nLegend for Status column:")
+    print("  ✔  = Clean (no changes)")
+    print("  S  = Staged changes only")
+    print("  U  = Unstaged changes only")
+    print("  ?  = Untracked files only")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Check all subfolders for git repo status.")
     parser.add_argument("parent_dir", help="Directory containing subfolders to check.")
     parser.add_argument("--pull", action="store_true", help="Pull the current branch from the remote after checking status.")
-    parser.add_argument("--force", action="store_true", help="Force fetch from remote, ignoring cache.")
+    parser.add_argument("--no-cache", action="store_true", help="Force fetch from remote, ignoring cache.")
     args = parser.parse_args()
-    report_multi_repo_status(args.parent_dir, do_pull=args.pull, do_force=args.force) 
+    report_multi_repo_status(args.parent_dir, do_pull=args.pull, do_force=args.no_cache) 
