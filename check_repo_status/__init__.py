@@ -55,4 +55,18 @@ def check_repo_status(repo_path="."):
     elif ahead == 0 and behind > 0:
         print(f"Your branch '{branch.name}' is behind '{remote_branch}' by {behind} commit(s). You may want to pull.")
     else:
-        print(f"Your branch and '{remote_branch}' have diverged. Local is ahead by {ahead} and behind by {behind} commit(s). Consider merging or rebasing.") 
+        print(f"Your branch and '{remote_branch}' have diverged. Local is ahead by {ahead} and behind by {behind} commit(s). Consider merging or rebasing.")
+
+    # Check for staged, unstaged, and untracked changes
+    staged_changes = repo.index.diff("HEAD")
+    unstaged_changes = repo.index.diff(None)
+    untracked_files = repo.untracked_files
+
+    if staged_changes:
+        print("There are staged changes ready to be committed.")
+    if unstaged_changes:
+        print("There are unstaged changes in your working directory.")
+    if untracked_files:
+        print(f"There are untracked files: {', '.join(untracked_files)}")
+    if not staged_changes and not unstaged_changes and not untracked_files:
+        print("Working directory clean (no staged, unstaged, or untracked changes).") 
