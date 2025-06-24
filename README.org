@@ -1,0 +1,51 @@
+#+setupfile: ~/.org-mode-goodies/setup.org
+
+* check-repo-status
+
+A Python tool to check if your local git repository is ahead, behind, or diverged from its remote.
+
+** Features
+- Checks if your branch is up to date, ahead, behind, or diverged from the remote
+- Supports specifying the repository folder as an argument
+- Easy to test and run with Makefile and uv
+
+** Requirements
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) (for dependency management)
+
+** Installation
+#+begin_src shell
+make install
+#+end_src
+
+** Usage
+Run in the current directory:
+#+begin_src shell
+make run
+#+end_src
+
+Or specify a repository folder:
+#+begin_src shell
+uv run python -m check_repo_status /path/to/repo
+#+end_src
+
+** Testing
+Run all tests with:
+#+begin_src shell
+make test
+#+end_src
+
+** Cleaning
+Remove caches and __pycache__:
+#+begin_src shell
+make clean
+#+end_src
+
+** Makefile Targets
+- ~install~: Install dependencies using uv
+- ~test~: Run tests with pytest in the uv environment
+- ~run~: Run the check_repo_status module (optionally pass ARGS)
+- ~clean~: Remove Python and pytest caches
+
+** License
+MIT 

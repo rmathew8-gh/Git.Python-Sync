@@ -1,0 +1,13 @@
+[project]
+name = "check-repo-status"
+version = "0.1.0"
+description = "Check if your local git repo is ahead, behind, or diverged from remote."
+authors = ["Your Name <your@email.com>"]
+requires-python = ">=3.11"
+dependencies = [
+    "gitpython",
+    "pytest"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."] 
