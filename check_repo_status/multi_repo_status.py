@@ -93,12 +93,8 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
             results.append(status)
     sys.stdout.write(' ' * 80 + '\r')  # Clear the progress line
     sys.stdout.flush()
-    # Sort results: remarkable (status != '✔') first (alphabetically), then clean (status == '✔') (alphabetically)
-    def is_remarkable(r):
-        staged = r['staged']
-        unstaged = r['unstaged']
-        untracked = r['untracked']
-        status = ''
+    # Helper to compute status symbol
+    def compute_status(staged, unstaged, untracked):
         if staged and unstaged:
             status = 'SU'
         elif staged:
@@ -111,11 +107,14 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
             status = '✔'
         if untracked and (staged or unstaged):
             status += '?'
-        return status != '✔'
+        return status
+    # Sort results: remarkable (status != '✔') first (alphabetically), then clean (status == '✔') (alphabetically)
+    def is_remarkable(r):
+        return compute_status(r['staged'], r['unstaged'], r['untracked']) != '✔'
     results.sort(key=lambda r: (not is_remarkable(r), r['name']))
     # Print org-mode table
-    header = '| Repo                 | Branch         | Cached  | Ahead | Behind | Status | Pull                |'
-    sep    = '|----------------------+---------------+---------+-------+--------+--------+---------------------|'
+    header = '| Repo                 | Branch               | Cached  | Ahead | Behind | Status | Pull                |'
+    sep    = '|----------------------+---------------------+---------+-------+--------+--------+---------------------|'
     print(header)
     print(sep)
     for r in results:
@@ -123,23 +122,8 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
         behind = str(r['behind']) if r['behind'] else "-"
         cached = 'cached' if r.get('cached') else ''
         branch = str(r.get('branch', '-'))[:20]  # Truncate to 20 chars, fixed width
-        # Compose status symbol
-        staged = r['staged']
-        unstaged = r['unstaged']
-        untracked = r['untracked']
-        status = ''
-        if staged and unstaged:
-            status = 'SU'
-        elif staged:
-            status = 'S'
-        elif unstaged:
-            status = 'U'
-        elif untracked:
-            status = '?'
-        else:
-            status = '✔'
-        if untracked and (staged or unstaged):
-            status += '?'
+        repo_name = r['name'][:20]  # Truncate to 20 chars
+        status = compute_status(r['staged'], r['unstaged'], r['untracked'])
         # Format pull result for user-friendly output
         pull_result = r.get('pull_result')
         pull_col = ''
@@ -155,7 +139,7 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
                     pull_col = 'OK'
             else:
                 pull_col = 'OK'
-        print(f"| {r['name'][:20]:<20} | {branch:<20} | {cached:<7} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} |")
+        print(f"| {repo_name:<20} | {branch:<20} | {cached:<7} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} |")
     # Print legend for Status column
     print("\nLegend for Status column:")
     print("  ✔  = Clean (no changes)")

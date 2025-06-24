@@ -221,15 +221,18 @@ def test_multi_repo_status_table(mock_repo, mock_isdir, mock_listdir):
         # Remove progress lines
         table_lines = '\n'.join(line for line in out.splitlines() if not line.strip().startswith('Checking repo'))
         # Check table header
-        assert '| Repo' in table_lines and '| Branch' in table_lines and '| Staged' in table_lines and '| Unstaged' in table_lines
+        assert '| Repo' in table_lines and '| Branch' in table_lines and '| Status' in table_lines and '| Pull' in table_lines
         # Check each repo line for correct values
-        assert '| repo1' in table_lines and '| repo1' in table_lines  # Repo and Branch columns
-        assert '| repo2' in table_lines and '| repo2' in table_lines
-        assert '| repo3' in table_lines and '| repo3' in table_lines
-        # Check staged/unstaged values
-        assert '| repo1' in table_lines and '| repo1' in table_lines and '1' in table_lines and '2' in table_lines
-        assert '| repo2' in table_lines and '0' in table_lines  # staged/unstaged both 0
-        assert '| repo3' in table_lines and '0' in table_lines and '1' in table_lines
+        # Remarkable repos (repo1, repo3) should be at the top, clean (repo2) last
+        lines = [line for line in table_lines.splitlines() if line.strip().startswith('|')]
+        # Find the lines for each repo
+        repo_lines = {l.split('|')[1].strip(): l for l in lines if l.count('|') > 6}
+        # repo1: staged=1, unstaged=2 -> SU
+        assert 'repo1' in repo_lines and 'SU' in repo_lines['repo1']
+        # repo3: ahead=1, behind=1, unstaged=1 -> U
+        assert 'repo3' in repo_lines and 'U' in repo_lines['repo3']
+        # repo2: clean -> ✔
+        assert 'repo2' in repo_lines and '✔' in repo_lines['repo2']
 
 @patch('check_repo_status.Repo')
 def test_fallback_to_master(mock_repo):
