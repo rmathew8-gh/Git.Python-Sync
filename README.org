@@ -30,6 +30,22 @@ Or specify a repository folder:
 uv run python -m check_repo_status /path/to/repo
 #+end_src
 
+** Multi-Repo Status
+You can check the status of all git repositories in subfolders of a directory and get an org-mode table for easy copy-paste into org documents:
+
+#+begin_src shell
+make run-multi ARGS=/path/to/parent_dir
+#+end_src
+
+Example output:
+#+begin_example
+| Repo                | Cached  | Ahead | Behind | Staged | Unstaged |
+|---------------------+---------+-------+--------+--------+----------|
+| repo1               |         | 2     | -      | 1      | 2        |
+| repo2               | cached  | -     | 3      | -      | -        |
+| repo3               |         | 1     | 1      | -      | 1        |
+#+end_example
+
 ** Advanced: Caching
 By default, remote fetches are cached for 10 minutes to speed up repeated scans. You can override this by setting the environment variable:
 #+begin_src shell
