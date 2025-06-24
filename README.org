@@ -63,11 +63,11 @@ make run-multi ARGS="--force --pull /path/to/parent_dir"
 
 Example output:
 #+begin_example
-| Repo                 | Branch         | Cached  | Ahead | Behind | Status | Pull                |
-|----------------------+---------------+---------+-------+--------+--------+---------------------|
-| repo1                | main          |         | 2     | -      | S      | OK                  |
-| repo2                | master        | cached  | -     | 3      | ✔      | OK                  |
-| repo3                | feature-x     |         | 1     | 1      | SU?    | refs/heads/main: fast-forward |
+| Repo                 | Branch               | Cached  | Ahead | Behind | Status | Pull                |
+|----------------------+---------------------+---------+-------+--------+--------+---------------------|
+| repo1                | main                |         | 2     | -      | S      | OK                  |
+| repo2                | master              | cached  | -     | 3      | ✔      | OK                  |
+| repo3                | feature-x           |         | 1     | 1      | U      | refs/heads/main: fast-forward |
 #+end_example
 
 Legend for Status column:
