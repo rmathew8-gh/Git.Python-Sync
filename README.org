@@ -30,12 +30,36 @@ Or specify a repository folder:
 uv run python -m check_repo_status /path/to/repo
 #+end_src
 
+You can also pull after checking status:
+#+begin_src shell
+make run ARGS="--pull /path/to/repo"   # Pull current branch from remote
+#+end_src
+
+You can also force a fetch from remote, ignoring the cache:
+#+begin_src shell
+make run ARGS="--force /path/to/repo"   # Force fetch from remote
+#+end_src
+
+You can combine --force with --pull:
+#+begin_src shell
+make run ARGS="--force --pull /path/to/repo"   # Force fetch and pull
+#+end_src
+
 ** Multi-Repo Status
 You can check the status of all git repositories in subfolders of a directory and get an org-mode table for easy copy-paste into org documents:
 
 #+begin_src shell
 make run-multi ARGS=/path/to/parent_dir
 #+end_src
+
+You can also force fetch or pull all repos after checking status:
+#+begin_src shell
+make run-multi ARGS="--force /path/to/parent_dir"
+make run-multi ARGS="--pull /path/to/parent_dir"
+make run-multi ARGS="--force --pull /path/to/parent_dir"
+#+end_src
+
+- The `--force` option will always fetch the latest from remote, ignoring the cache (useful if you want to ensure you have the latest info).
 
 Example output:
 #+begin_example
@@ -44,6 +68,7 @@ Example output:
 | repo1               |         | 2     | -      | 1      | 2        |
 | repo2               | cached  | -     | 3      | -      | -        |
 | repo3               |         | 1     | 1      | -      | 1        |
+  Pull: [<git.remote.FetchInfo ...>]   # Example pull result
 #+end_example
 
 ** Advanced: Caching

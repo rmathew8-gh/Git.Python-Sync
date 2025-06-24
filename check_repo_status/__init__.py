@@ -30,7 +30,7 @@ def update_fetch_cache(repo_path, remote_name):
     except Exception:
         pass
 
-def check_repo_status(repo_path="."):
+def check_repo_status(repo_path=".", do_pull=False, do_force=False):
     try:
         repo = Repo(repo_path)
     except Exception as e:
@@ -41,19 +41,30 @@ def check_repo_status(repo_path="."):
         print("Repository is bare.")
         sys.exit(1)
 
-    # Get current branch
-    try:
-        branch = repo.active_branch
-    except TypeError:
-        print("Detached HEAD state. Please checkout a branch.")
-        sys.exit(1)
+    # Determine branch: prefer 'main', fallback to 'master'
+    branch = None
+    for branch_name in ["main", "master"]:
+        try:
+            branch_ref = repo.heads[branch_name]
+            branch = branch_ref
+            break
+        except (IndexError, AttributeError, KeyError):
+            continue
+    if branch is None:
+        # fallback to active_branch (for feature branches, etc.)
+        try:
+            branch = repo.active_branch
+        except TypeError:
+            print("Detached HEAD state. Please checkout a branch.")
+            sys.exit(1)
 
     remote_name = 'origin'
     remote_branch = f'{remote_name}/{branch.name}'
 
     # Fetch latest from remote, with caching
     cache_seconds = int(os.environ.get('GIT_FETCH_CACHE_SECONDS', '600'))
-    if should_fetch(repo_path, remote_name, cache_seconds):
+    fetch_needed = do_force or should_fetch(repo_path, remote_name, cache_seconds)
+    if fetch_needed:
         try:
             repo.remotes[remote_name].fetch()
             update_fetch_cache(repo_path, remote_name)
@@ -69,10 +80,27 @@ def check_repo_status(repo_path="."):
             sys.exit(1)
 
     # Get commit objects
-    local_commit = repo.commit(branch.name)
     try:
-        remote_commit = repo.commit(remote_branch)
+        local_commit = repo.commit(branch.name)
     except Exception:
+        print(f"Local branch {branch.name} not found.")
+        sys.exit(1)
+    # Try remote branch for current branch, then fallback to origin/main or origin/master
+    remote_commit = None
+    remote_branch_candidates = [remote_branch]
+    # If current branch is main, try master as fallback; if master, try main as fallback
+    if branch.name == "main":
+        remote_branch_candidates.append(f"{remote_name}/master")
+    elif branch.name == "master":
+        remote_branch_candidates.append(f"{remote_name}/main")
+    for rb in remote_branch_candidates:
+        try:
+            remote_commit = repo.commit(rb)
+            remote_branch = rb  # Use the found remote branch for all further output
+            break
+        except Exception:
+            continue
+    if remote_commit is None:
         print(f"Remote branch {remote_branch} not found.")
         sys.exit(1)
 
@@ -101,4 +129,13 @@ def check_repo_status(repo_path="."):
     if untracked_files:
         print(f"There are untracked files: {', '.join(untracked_files)}")
     if not staged_changes and not unstaged_changes and not untracked_files:
-        print("Working directory clean (no staged, unstaged, or untracked changes).") 
+        print("Working directory clean (no staged, unstaged, or untracked changes).")
+
+    # Perform pull if requested
+    if do_pull:
+        try:
+            print(f"Pulling from {remote_name}/{branch.name}...")
+            pull_info = repo.remotes[remote_name].pull(branch.name)
+            print(f"Pull result: {pull_info}")
+        except Exception as e:
+            print(f"Error during pull: {e}") 

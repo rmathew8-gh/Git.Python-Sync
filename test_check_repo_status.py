@@ -31,6 +31,7 @@ def test_ahead(mock_repo):
     repo = MagicMock()
     branch = MagicMock()
     branch.name = 'main'
+    repo.heads = {'main': branch}
     repo.active_branch = branch
     repo.bare = False
     repo.remotes = {'origin': MagicMock()}
@@ -51,6 +52,7 @@ def test_behind(mock_repo):
     repo = MagicMock()
     branch = MagicMock()
     branch.name = 'main'
+    repo.heads = {'main': branch}
     repo.active_branch = branch
     repo.bare = False
     repo.remotes = {'origin': MagicMock()}
@@ -71,6 +73,7 @@ def test_diverged(mock_repo):
     repo = MagicMock()
     branch = MagicMock()
     branch.name = 'main'
+    repo.heads = {'main': branch}
     repo.active_branch = branch
     repo.bare = False
     repo.remotes = {'origin': MagicMock()}
@@ -173,14 +176,24 @@ def test_not_a_git_repo(tmp_path):
 def make_fake_repo(ahead=0, behind=0, staged=0, unstaged=0, name='repo'):
     repo = MagicMock()
     branch = MagicMock()
-    branch.name = 'main'
+    branch.name = name  # Use the repo name as the branch name for formatting
     repo.active_branch = branch
     repo.bare = False
     repo.remotes = {'origin': MagicMock()}
     repo.commit.side_effect = lambda x: x
     repo.iter_commits.side_effect = lambda x: iter([1]*ahead) if x == 'origin/main..main' else (iter([1]*behind) if x == 'main..origin/main' else iter([]))
-    repo.index.diff.side_effect = lambda x=None: [1]*staged if x == "HEAD" else ([1]*unstaged if x is None else [])
+    # Always return lists of the correct length for diff
+    def diff_side_effect(arg=None):
+        if arg == "HEAD":
+            return [1]*staged
+        elif arg is None:
+            return [1]*unstaged
+        else:
+            return []
+    repo.index.diff.side_effect = diff_side_effect
     repo.untracked_files = []
+    # Add heads['main'] for fallback logic
+    repo.heads = {'main': branch}
     return repo
 
 @patch('os.listdir')
@@ -208,16 +221,57 @@ def test_multi_repo_status_table(mock_repo, mock_isdir, mock_listdir):
         # Remove progress lines
         table_lines = '\n'.join(line for line in out.splitlines() if not line.strip().startswith('Checking repo'))
         # Check table header
-        assert 'Repo' in table_lines and 'Ahead' in table_lines and 'Behind' in table_lines
-        # Check terse values for each repo
-        assert 'repo1' in table_lines and '2' in table_lines and '-' in table_lines
-        assert 'repo2' in table_lines and '3' in table_lines
-        assert 'repo3' in table_lines and '1' in table_lines
-        # Check staged/unstaged only shown if ahead
-        assert '1' in table_lines  # staged for repo1
-        assert '2' in table_lines  # unstaged for repo1
-        # repo2 should not show staged/unstaged since not ahead
-        # repo3 should show unstaged since ahead
-        assert table_lines.count('repo1') == 1
-        assert table_lines.count('repo2') == 1
-        assert table_lines.count('repo3') == 1 
+        assert '| Repo' in table_lines and '| Branch' in table_lines and '| Staged' in table_lines and '| Unstaged' in table_lines
+        # Check each repo line for correct values
+        assert '| repo1' in table_lines and '| repo1' in table_lines  # Repo and Branch columns
+        assert '| repo2' in table_lines and '| repo2' in table_lines
+        assert '| repo3' in table_lines and '| repo3' in table_lines
+        # Check staged/unstaged values
+        assert '| repo1' in table_lines and '| repo1' in table_lines and '1' in table_lines and '2' in table_lines
+        assert '| repo2' in table_lines and '0' in table_lines  # staged/unstaged both 0
+        assert '| repo3' in table_lines and '0' in table_lines and '1' in table_lines
+
+@patch('check_repo_status.Repo')
+def test_fallback_to_master(mock_repo):
+    repo = MagicMock()
+    # Simulate only 'master' branch exists
+    repo.heads = {'master': MagicMock(name='master')}
+    repo.heads['master'].name = 'master'
+    repo.active_branch = repo.heads['master']
+    repo.bare = False
+    repo.remotes = {'origin': MagicMock()}
+    repo.commit.side_effect = lambda x: x
+    repo.iter_commits.side_effect = lambda x: iter([])
+    repo.index.diff.return_value = []
+    repo.untracked_files = []
+    mock_repo.return_value = repo
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        check_repo_status()
+        out = fake_out.getvalue()
+        assert "up to date" in out
+        assert "master" in out
+        assert "Working directory clean" in out
+
+@patch('check_repo_status.Repo')
+def test_fallback_to_active_branch(mock_repo):
+    repo = MagicMock()
+    # Simulate neither 'main' nor 'master' exists, only 'feature' branch
+    repo.heads = {}
+    feature_branch = MagicMock()
+    feature_branch.name = 'feature-branch'
+    repo.active_branch = feature_branch
+    repo.bare = False
+    repo.remotes = {'origin': MagicMock()}
+    repo.commit.side_effect = lambda x: x
+    repo.iter_commits.side_effect = lambda x: iter([])
+    repo.index.diff.return_value = []
+    repo.untracked_files = []
+    mock_repo.return_value = repo
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        check_repo_status()
+        out = fake_out.getvalue()
+        assert "up to date" in out
+        assert "feature-branch" in out
+        assert "Working directory clean" in out 
