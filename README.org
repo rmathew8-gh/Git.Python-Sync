@@ -9,6 +9,10 @@ A Python tool to check if your local git repository is ahead, behind, or diverge
 - Supports specifying the repository folder as an argument
 - Easy to test and run with Makefile and uv
 - Caches git fetches for 10 minutes by default for speed (configurable)
+- Works for any current branch (not just main/master)
+- Org-mode table now includes a 'Last Activity' column (date of last commit, YYYY/MM/DD)
+- Results are sorted by remarkable status (dirty repos first), then by most recent activity
+- Supports filtering for recently active repos with --recent-only
 
 ** Requirements
 - Python 3.11+
@@ -59,15 +63,21 @@ make run-multi ARGS="--pull /path/to/parent_dir"
 make run-multi ARGS="--force --pull /path/to/parent_dir"
 #+end_src
 
+You can filter to only show repos with activity in the last 3 months:
+#+begin_src shell
+make run-multi ARGS="--recent-only /path/to/parent_dir"
+#+end_src
+
 - The `--force` option will always fetch the latest from remote, ignoring the cache (useful if you want to ensure you have the latest info).
+- The `--recent-only` option will only show repos with a commit in the last 3 months.
 
 Example output:
 #+begin_example
-| Repo                 | Branch               | Cached  | Ahead | Behind | Status | Pull                |
-|----------------------+---------------------+---------+-------+--------+--------+---------------------|
-| repo1                | main                |         | 2     | -      | S      | OK                  |
-| repo2                | master              | cached  | -     | 3      | ✔      | OK                  |
-| repo3                | feature-x           |         | 1     | 1      | U      | refs/heads/main: fast-forward |
+| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Branch               | Cached  |
+|----------------------+-------+--------+--------+---------------+---------------------+---------------------+---------|
+| repo1                | 2     | -      | S      | 2025/03/23    | OK                  | main                |         |
+| repo3                | 1     | 1      | U      | 2025/02/10    | refs/heads/main: fast-forward | feature-x           |         |
+| repo2                | -     | 3      | ✔      | 2024/12/01    | OK                  | master              | cached  |
 #+end_example
 
 Legend for Status column:

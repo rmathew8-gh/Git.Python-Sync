@@ -92,7 +92,7 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
         'last_activity': last_activity_str,
     }
 
-def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
+def report_multi_repo_status(parent_dir, do_pull=False, do_force=False, recent_only=False):
     subdirs = [os.path.join(parent_dir, d) for d in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, d))]
     results = []
     total = len(subdirs)
@@ -119,7 +119,6 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
         if untracked and (staged or unstaged):
             status += '?'
         return status
-    # Sort results: remarkable (status != '✔') first (alphabetically), then clean (status == '✔') (alphabetically)
     def is_remarkable(r):
         return compute_status(r['staged'], r['unstaged'], r['untracked']) != '✔'
     def parse_last_activity(r):
@@ -127,6 +126,10 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
             return datetime.strptime(r.get('last_activity', ''), '%Y/%m/%d')
         except Exception:
             return datetime.min
+    # Filter for recent-only if flag is set
+    if recent_only:
+        three_months_ago = datetime.now() - timedelta(days=90)
+        results = [r for r in results if parse_last_activity(r) >= three_months_ago]
     # Sort: remarkable first, then by last_activity desc, then by name
     results.sort(key=lambda r: (not is_remarkable(r), -parse_last_activity(r).timestamp(), r['name']))
     # Print org-mode table
@@ -171,5 +174,6 @@ if __name__ == "__main__":
     parser.add_argument("parent_dir", help="Directory containing subfolders to check.")
     parser.add_argument("--pull", action="store_true", help="Pull the current branch from the remote after checking status.")
     parser.add_argument("--no-cache", action="store_true", help="Force fetch from remote, ignoring cache.")
+    parser.add_argument("--recent-only", action="store_true", help="Only show repos with activity in the last 3 months.")
     args = parser.parse_args()
-    report_multi_repo_status(args.parent_dir, do_pull=args.pull, do_force=args.no_cache) 
+    report_multi_repo_status(args.parent_dir, do_pull=args.pull, do_force=args.no_cache, recent_only=args.recent_only) 
