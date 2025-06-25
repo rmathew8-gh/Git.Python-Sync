@@ -10,11 +10,14 @@ install:
 test:
 	uv run pytest
 
-run:
-	uv run python -m check_repo_status $(ARGS)
+# run:
+# 	uv run python -m check_repo_status $(ARGS)
 
 run-multi:
 	uv run python -m check_repo_status.multi_repo_status $(ARGS)
+
+run:
+	make run-multi ARGS="~/git-dir/Scalis --pull"
 
 clean:
 	rm -rf __pycache__ .pytest_cache check_repo_status/__pycache__ 
