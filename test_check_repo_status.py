@@ -5,6 +5,7 @@ import sys
 import os
 import subprocess
 from check_repo_status import check_repo_status
+from datetime import datetime
 
 @patch('check_repo_status.Repo')
 def test_up_to_date(mock_repo):
@@ -194,6 +195,10 @@ def make_fake_repo(ahead=0, behind=0, staged=0, unstaged=0, name='repo'):
     repo.untracked_files = []
     # Add heads['main'] for fallback logic
     repo.heads = {'main': branch}
+    # Patch head.commit.committed_datetime to a real datetime
+    commit = MagicMock()
+    commit.committed_datetime = datetime(2025, 3, 23)
+    repo.head.commit = commit
     return repo
 
 @patch('os.listdir')

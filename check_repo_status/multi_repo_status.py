@@ -3,6 +3,7 @@ from git import Repo, GitCommandError, InvalidGitRepositoryError
 from check_repo_status import check_repo_status, should_fetch, update_fetch_cache
 import sys
 import time
+from datetime import datetime, timedelta
 
 def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     try:
@@ -63,6 +64,13 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     unstaged = len(repo.index.diff(None))
     untracked = len(repo.untracked_files)
 
+    # Get last commit date in YYYY/MM/DD format
+    try:
+        last_commit_date = repo.head.commit.committed_datetime
+        last_activity_str = last_commit_date.strftime('%Y/%m/%d')
+    except Exception:
+        last_activity_str = '-'
+
     # Perform pull if requested
     pull_result = None
     if do_pull:
@@ -81,6 +89,7 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
         'untracked': untracked,
         'cached': cache_hit,
         'pull_result': pull_result,
+        'last_activity': last_activity_str,
     }
 
 def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
@@ -113,10 +122,16 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
     # Sort results: remarkable (status != '✔') first (alphabetically), then clean (status == '✔') (alphabetically)
     def is_remarkable(r):
         return compute_status(r['staged'], r['unstaged'], r['untracked']) != '✔'
-    results.sort(key=lambda r: (not is_remarkable(r), r['name']))
+    def parse_last_activity(r):
+        try:
+            return datetime.strptime(r.get('last_activity', ''), '%Y/%m/%d')
+        except Exception:
+            return datetime.min
+    # Sort: remarkable first, then by last_activity desc, then by name
+    results.sort(key=lambda r: (not is_remarkable(r), -parse_last_activity(r).timestamp(), r['name']))
     # Print org-mode table
-    header = '| Repo                 | Ahead | Behind | Status | Pull                | Branch               | Cached  |'
-    sep    = '|----------------------+-------+--------+--------+---------------------+---------------------+---------|'
+    header = '| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Branch               | Cached  |'
+    sep    = '|----------------------+-------+--------+--------+---------------+---------------------+---------------------+---------|'
     print(header)
     print(sep)
     for r in results:
@@ -126,6 +141,7 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
         branch = str(r.get('branch', '-'))[:20]  # Truncate to 20 chars, fixed width
         repo_name = r['name'][:20]  # Truncate to 20 chars
         status = compute_status(r['staged'], r['unstaged'], r['untracked'])
+        last_activity_col = r.get('last_activity', '-')
         # Format pull result for user-friendly output
         pull_result = r.get('pull_result')
         pull_col = ''
@@ -141,7 +157,7 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
                     pull_col = 'OK'
             else:
                 pull_col = 'OK'
-        print(f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} | {branch:<20} | {cached:<7} |")
+        print(f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {last_activity_col:<13} | {pull_col:<19} | {branch:<20} | {cached:<7} |")
     # Print legend for Status column
     print("\nLegend for Status column:")
     print("  ✔  = Clean (no changes)")
