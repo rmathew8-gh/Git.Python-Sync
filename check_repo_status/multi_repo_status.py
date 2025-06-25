@@ -11,19 +11,20 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
         return None
     if repo.bare:
         return None
-    # Determine branch: prefer 'main', fallback to 'master'
-    branch = None
-    for branch_name in ["main", "master"]:
-        try:
-            branch_ref = repo.heads[branch_name]
-            branch = branch_ref
-            break
-        except (IndexError, AttributeError, KeyError):
-            continue
-    if branch is None:
-        try:
-            branch = repo.active_branch
-        except Exception:
+    # Always use the current active branch
+    try:
+        branch = repo.active_branch
+    except Exception:
+        # Fallback: try 'main' or 'master' if active branch is unavailable (detached HEAD)
+        branch = None
+        for branch_name in ["main", "master"]:
+            try:
+                branch_ref = repo.heads[branch_name]
+                branch = branch_ref
+                break
+            except (IndexError, AttributeError, KeyError):
+                continue
+        if branch is None:
             return None
     remote_name = 'origin'
     remote_branch = f'{remote_name}/{branch.name}'
@@ -42,10 +43,11 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     # Try remote branch for current branch, then fallback to origin/main or origin/master
     remote_commit = None
     remote_branch_candidates = [remote_branch]
-    if branch.name == "main":
-        remote_branch_candidates.append(f"{remote_name}/master")
-    elif branch.name == "master":
+    # Fallbacks for legacy support
+    if branch.name != "main":
         remote_branch_candidates.append(f"{remote_name}/main")
+    if branch.name != "master":
+        remote_branch_candidates.append(f"{remote_name}/master")
     for rb in remote_branch_candidates:
         try:
             remote_commit = repo.commit(rb)
@@ -113,8 +115,8 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
         return compute_status(r['staged'], r['unstaged'], r['untracked']) != '✔'
     results.sort(key=lambda r: (not is_remarkable(r), r['name']))
     # Print org-mode table
-    header = '| Repo                 | Branch               | Cached  | Ahead | Behind | Status | Pull                |'
-    sep    = '|----------------------+---------------------+---------+-------+--------+--------+---------------------|'
+    header = '| Repo                 | Ahead | Behind | Status | Pull                | Branch               | Cached  |'
+    sep    = '|----------------------+-------+--------+--------+---------------------+---------------------+---------|'
     print(header)
     print(sep)
     for r in results:
@@ -139,7 +141,7 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False):
                     pull_col = 'OK'
             else:
                 pull_col = 'OK'
-        print(f"| {repo_name:<20} | {branch:<20} | {cached:<7} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} |")
+        print(f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {pull_col:<19} | {branch:<20} | {cached:<7} |")
     # Print legend for Status column
     print("\nLegend for Status column:")
     print("  ✔  = Clean (no changes)")
