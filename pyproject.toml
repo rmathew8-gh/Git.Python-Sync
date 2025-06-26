@@ -15,7 +15,7 @@ dependencies = [
 check-repo-status = "check_repo_status.__main__:main"
 
 [tool.pytest.ini_options]
-testpaths = ["."]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 include = ["check_repo_status"] 
