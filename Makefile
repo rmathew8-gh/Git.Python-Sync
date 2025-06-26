@@ -1,4 +1,4 @@
-.PHONY: install test clean run run-multi
+.PHONY: install test clean run run-multi real-clean
 
 VENV ?= $(shell uv venv locate 2>/dev/null || echo venv)
 PYTHON ?= $(VENV)/bin/python
@@ -22,4 +22,7 @@ run:
 	PYTHONPATH=src make run-multi ARGS="~/git-dir/Scalis --pull"
 
 clean:
-	rm -rf __pycache__ .pytest_cache check_repo_status/__pycache__ 
+	find . -type d -name '__pycache__' -exec rm -rf {} +
+
+real-clean: clean
+	git clean -fdx
