@@ -41,12 +41,12 @@ make run ARGS="--pull /path/to/repo"   # Pull current branch from remote
 
 You can also force a fetch from remote, ignoring the cache:
 #+begin_src shell
-make run ARGS="--force /path/to/repo"   # Force fetch from remote
+make run ARGS="--no-cache /path/to/repo"   # Force fetch from remote
 #+end_src
 
-You can combine --force with --pull:
+You can combine --no-cache with --pull:
 #+begin_src shell
-make run ARGS="--force --pull /path/to/repo"   # Force fetch and pull
+make run ARGS="--no-cache --pull /path/to/repo"   # Force fetch and pull
 #+end_src
 
 ** Multi-Repo Status
@@ -58,9 +58,9 @@ make run-multi ARGS=/path/to/parent_dir
 
 You can also force fetch or pull all repos after checking status:
 #+begin_src shell
-make run-multi ARGS="--force /path/to/parent_dir"
+make run-multi ARGS="--no-cache /path/to/parent_dir"
 make run-multi ARGS="--pull /path/to/parent_dir"
-make run-multi ARGS="--force --pull /path/to/parent_dir"
+make run-multi ARGS="--no-cache --pull /path/to/parent_dir"
 #+end_src
 
 You can filter to only show repos with activity in the last 3 months:
@@ -68,8 +68,10 @@ You can filter to only show repos with activity in the last 3 months:
 make run-multi ARGS="--recent-only /path/to/parent_dir"
 #+end_src
 
-- The `--force` option will always fetch the latest from remote, ignoring the cache (useful if you want to ensure you have the latest info).
+- The `--no-cache` option will always fetch the latest from remote, ignoring the cache (useful if you want to ensure you have the latest info).
 - The `--recent-only` option will only show repos with a commit in the last 3 months.
+
+The multi-repo status script is located at `check_repo_status/multi_repo_status.py`.
 
 Example output:
 #+begin_example
