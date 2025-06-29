@@ -1,4 +1,3 @@
-/__pycache__/
+__pycache__
 /uv.lock
-/check_repo_status/__pycache__/
 /check_repo_status.egg-info/
