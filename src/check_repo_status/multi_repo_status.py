@@ -5,6 +5,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 
+
 def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     try:
         repo = Repo(repo_path)
@@ -27,10 +28,10 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
                 continue
         if branch is None:
             return None
-    remote_name = 'origin'
-    remote_branch = f'{remote_name}/{branch.name}'
+    remote_name = "origin"
+    remote_branch = f"{remote_name}/{branch.name}"
     # Use fetch cache
-    cache_seconds = int(os.environ.get('GIT_FETCH_CACHE_SECONDS', '600'))
+    cache_seconds = int(os.environ.get("GIT_FETCH_CACHE_SECONDS", "600"))
     fetch_needed = do_force or should_fetch(repo_path, remote_name, cache_seconds)
     cache_hit = False
     if fetch_needed:
@@ -58,8 +59,8 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
             continue
     if remote_commit is None:
         return None
-    ahead = sum(1 for _ in repo.iter_commits(f'{remote_branch}..{branch.name}'))
-    behind = sum(1 for _ in repo.iter_commits(f'{branch.name}..{remote_branch}'))
+    ahead = sum(1 for _ in repo.iter_commits(f"{remote_branch}..{branch.name}"))
+    behind = sum(1 for _ in repo.iter_commits(f"{branch.name}..{remote_branch}"))
     staged = len(repo.index.diff("HEAD"))
     unstaged = len(repo.index.diff(None))
     untracked = len(repo.untracked_files)
@@ -67,9 +68,9 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     # Get last commit date in YYYY/MM/DD format
     try:
         last_commit_date = repo.head.commit.committed_datetime
-        last_activity_str = last_commit_date.strftime('%Y/%m/%d')
+        last_activity_str = last_commit_date.strftime("%Y/%m/%d")
     except Exception:
-        last_activity_str = '-'
+        last_activity_str = "-"
 
     # Perform pull if requested
     pull_result = None
@@ -80,87 +81,110 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
             pull_result = f"Error: {e}"
 
     return {
-        'name': os.path.basename(repo_path),
-        'branch': branch.name,
-        'ahead': ahead,
-        'behind': behind,
-        'staged': staged,
-        'unstaged': unstaged,
-        'untracked': untracked,
-        'cached': cache_hit,
-        'pull_result': pull_result,
-        'last_activity': last_activity_str,
+        "name": os.path.basename(repo_path),
+        "branch": branch.name,
+        "ahead": ahead,
+        "behind": behind,
+        "staged": staged,
+        "unstaged": unstaged,
+        "untracked": untracked,
+        "cached": cache_hit,
+        "pull_result": pull_result,
+        "last_activity": last_activity_str,
     }
 
-def report_multi_repo_status(parent_dir, do_pull=False, do_force=False, recent_only=False):
-    subdirs = [os.path.join(parent_dir, d) for d in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, d))]
+
+def report_multi_repo_status(
+    parent_dir, do_pull=False, do_force=False, recent_only=False
+):
+    subdirs = [
+        os.path.join(parent_dir, d)
+        for d in os.listdir(parent_dir)
+        if os.path.isdir(os.path.join(parent_dir, d))
+    ]
     results = []
     total = len(subdirs)
     for idx, subdir in enumerate(subdirs, 1):
-        sys.stdout.write(f"Checking repo {idx}/{total}: {os.path.basename(subdir)}...\r")
+        sys.stdout.write(
+            f"Checking repo {idx}/{total}: {os.path.basename(subdir)}...\r"
+        )
         sys.stdout.flush()
         status = get_repo_status_summary(subdir, do_pull=do_pull, do_force=do_force)
         if status:
             results.append(status)
-    sys.stdout.write(' ' * 80 + '\r')  # Clear the progress line
+    sys.stdout.write(" " * 80 + "\r")  # Clear the progress line
     sys.stdout.flush()
+
     # Helper to compute status symbol
     def compute_status(staged, unstaged, untracked):
         if staged and unstaged:
-            status = 'SU'
+            status = "SU"
         elif staged:
-            status = 'S'
+            status = "S"
         elif unstaged:
-            status = 'U'
+            status = "U"
         elif untracked:
-            status = '?'
+            status = "?"
         else:
-            status = '✔'
+            status = "✔"
         if untracked and (staged or unstaged):
-            status += '?'
+            status += "?"
         return status
+
     def is_remarkable(r):
-        return compute_status(r['staged'], r['unstaged'], r['untracked']) != '✔'
+        return compute_status(r["staged"], r["unstaged"], r["untracked"]) != "✔"
+
     def parse_last_activity(r):
         try:
-            return datetime.strptime(r.get('last_activity', ''), '%Y/%m/%d')
+            return datetime.strptime(r.get("last_activity", ""), "%Y/%m/%d")
         except Exception:
             return datetime.min
+
     # Filter for recent-only if flag is set
     if recent_only:
         three_months_ago = datetime.now() - timedelta(days=90)
         results = [r for r in results if parse_last_activity(r) >= three_months_ago]
     # Sort: remarkable first, then by last_activity desc, then by name
-    results.sort(key=lambda r: (not is_remarkable(r), -parse_last_activity(r).timestamp(), r['name']))
+    results.sort(
+        key=lambda r: (
+            not is_remarkable(r),
+            -parse_last_activity(r).timestamp(),
+            r["name"],
+        )
+    )
     # Print org-mode table
-    header = '| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Branch               | Cached  |'
-    sep    = '|----------------------+-------+--------+--------+---------------+---------------------+---------------------+---------|'
+    header = "| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Branch               | Cached  |"
+    sep = "|----------------------+-------+--------+--------+---------------+---------------------+---------------------+---------|"
     print(header)
     print(sep)
     for r in results:
-        ahead = str(r['ahead']) if r['ahead'] else "-"
-        behind = str(r['behind']) if r['behind'] else "-"
-        cached = 'cached' if r.get('cached') else ''
-        branch = str(r.get('branch', '-'))[:20]  # Truncate to 20 chars, fixed width
-        repo_name = r['name'][:20]  # Truncate to 20 chars
-        status = compute_status(r['staged'], r['unstaged'], r['untracked'])
-        last_activity_col = r.get('last_activity', '-')
+        ahead = str(r["ahead"]) if r["ahead"] else "-"
+        behind = str(r["behind"]) if r["behind"] else "-"
+        cached = "cached" if r.get("cached") else ""
+        branch = str(r.get("branch", "-"))[:20]  # Truncate to 20 chars, fixed width
+        repo_name = r["name"][:20]  # Truncate to 20 chars
+        status = compute_status(r["staged"], r["unstaged"], r["untracked"])
+        last_activity_col = r.get("last_activity", "-")
         # Format pull result for user-friendly output
-        pull_result = r.get('pull_result')
-        pull_col = ''
+        pull_result = r.get("pull_result")
+        pull_col = ""
         if pull_result is not None:
             if isinstance(pull_result, list) and pull_result:
                 changes = []
                 for info in pull_result:
-                    if hasattr(info, 'ref') and hasattr(info, 'note'):
-                        changes.append(f"{getattr(info, 'ref', '?')}: {getattr(info, 'note', '')}")
+                    if hasattr(info, "ref") and hasattr(info, "note"):
+                        changes.append(
+                            f"{getattr(info, 'ref', '?')}: {getattr(info, 'note', '')}"
+                        )
                 if changes:
-                    pull_col = ', '.join(changes)
+                    pull_col = ", ".join(changes)
                 else:
-                    pull_col = 'OK'
+                    pull_col = "OK"
             else:
-                pull_col = 'OK'
-        print(f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {last_activity_col:<13} | {pull_col:<19} | {branch:<20} | {cached:<7} |")
+                pull_col = "OK"
+        print(
+            f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {last_activity_col:<13} | {pull_col:<19} | {branch:<20} | {cached:<7} |"
+        )
     # Print legend for Status column
     print("\nLegend for Status column:")
     print("  ✔  = Clean (no changes)")
@@ -168,12 +192,33 @@ def report_multi_repo_status(parent_dir, do_pull=False, do_force=False, recent_o
     print("  U  = Unstaged changes only")
     print("  ?  = Untracked files only")
 
+
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Check all subfolders for git repo status.")
+
+    parser = argparse.ArgumentParser(
+        description="Check all subfolders for git repo status."
+    )
     parser.add_argument("parent_dir", help="Directory containing subfolders to check.")
-    parser.add_argument("--pull", action="store_true", help="Pull the current branch from the remote after checking status.")
-    parser.add_argument("--no-cache", action="store_true", help="Force fetch from remote, ignoring cache.")
-    parser.add_argument("--recent-only", action="store_true", help="Only show repos with activity in the last 3 months.")
+    parser.add_argument(
+        "--pull",
+        action="store_true",
+        help="Pull the current branch from the remote after checking status.",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Force fetch from remote, ignoring cache.",
+    )
+    parser.add_argument(
+        "--recent-only",
+        action="store_true",
+        help="Only show repos with activity in the last 3 months.",
+    )
     args = parser.parse_args()
-    report_multi_repo_status(args.parent_dir, do_pull=args.pull, do_force=args.no_cache, recent_only=args.recent_only) 
+    report_multi_repo_status(
+        args.parent_dir,
+        do_pull=args.pull,
+        do_force=args.no_cache,
+        recent_only=args.recent_only,
+    )
