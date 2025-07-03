@@ -90,7 +90,7 @@ def check_repo_status(repo_path=".", do_pull=False, do_force=False):
 
     # Get commit objects
     try:
-        local_commit = repo.commit(branch.name)
+        repo.commit(branch.name)
     except Exception:
         print(f"Local branch {branch.name} not found.")
         sys.exit(1)

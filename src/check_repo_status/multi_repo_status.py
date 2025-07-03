@@ -1,8 +1,7 @@
 import os
 from git import Repo, GitCommandError, InvalidGitRepositoryError
-from check_repo_status import check_repo_status, should_fetch, update_fetch_cache
+from check_repo_status import should_fetch, update_fetch_cache
 import sys
-import time
 from datetime import datetime, timedelta
 
 

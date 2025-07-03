@@ -1,8 +1,6 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from io import StringIO
 import sys
-import os
 import subprocess
 from check_repo_status import check_repo_status
 from datetime import datetime
