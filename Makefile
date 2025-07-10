@@ -19,7 +19,9 @@ run-multi:
 	uv run python -m check_repo_status.multi_repo_status $(ARGS)
 
 run:
-	PYTHONPATH=src make run-multi ARGS="~/git-dir/Scalis --pull"
+	PYTHONPATH=src make run-multi ARGS="~/git-dir --pull --recent"
+	PYTHONPATH=src make run-multi ARGS="~/git-dir/Scalis --pull --recent"
+	PYTHONPATH=src make run-multi ARGS="~/Downloads --pull --recent"
 
 clean:
 	find . -type d -name '__pycache__' -exec rm -rf {} +
