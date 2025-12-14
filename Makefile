@@ -19,8 +19,8 @@ run-multi:
 	uv run python -m check_repo_status.multi_repo_status $(ARGS)
 
 run:
-	PYTHONPATH=src make run-multi ARGS="~/git-dir --pull --recent"
-	PYTHONPATH=src make run-multi ARGS="~/git-dir/Scalis --pull --recent"
+	PYTHONPATH=src make run-multi ARGS="~/git-dir/RECENT --pull --recent"
+	# PYTHONPATH=src make run-multi ARGS="~/git-dir/Scalis --pull --recent"
 	PYTHONPATH=src make run-multi ARGS="~/Downloads --pull --recent"
 
 clean:
