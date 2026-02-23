@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timedelta
 
 
-def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
+def get_repo_status_summary(repo_path, do_pull=False, do_force=False, do_commit_push=False):
     try:
         repo = Repo(repo_path)
     except (InvalidGitRepositoryError, GitCommandError, Exception):
@@ -71,13 +71,36 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
     except Exception:
         last_activity_str = "-"
 
+    # Perform commit first if commit-push is enabled, to ensure pull can succeed
+    sync_error = None
+    if do_commit_push:
+        try:
+            if staged or unstaged or untracked:
+                repo.git.add(A=True)
+                repo.index.commit("Auto-sync: local changes")
+        except Exception as e:
+            sync_error = f"Commit error: {e}"
+
     # Perform pull if requested
     pull_result = None
-    if do_pull:
+    if do_pull and not sync_error:
         try:
             pull_result = repo.remotes[remote_name].pull(branch.name)
         except Exception as e:
             pull_result = f"Error: {e}"
+            if do_commit_push:
+                sync_error = f"Pull error: {e}"
+
+    # Perform push if requested
+    push_result = None
+    if do_commit_push and not sync_error:
+        try:
+            # Now push (includes any previously ahead commits + the one we just made)
+            repo.remotes[remote_name].push()
+            push_result = "OK"
+        except Exception as e:
+            push_result = f"Error: {e}"
+            sync_error = f"Push error: {e}"
 
     return {
         "name": os.path.basename(repo_path),
@@ -89,12 +112,14 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False):
         "untracked": untracked,
         "cached": cache_hit,
         "pull_result": pull_result,
+        "push_result": push_result,
+        "sync_error": sync_error,
         "last_activity": last_activity_str,
     }
 
 
 def report_multi_repo_status(
-    parent_dir, do_pull=False, do_force=False, recent_only=False
+    parent_dir, do_pull=False, do_force=False, recent_only=False, do_commit_push=False
 ):
     subdirs = [
         os.path.join(parent_dir, d)
@@ -108,7 +133,12 @@ def report_multi_repo_status(
             f"Checking repo {idx}/{total}: {os.path.basename(subdir)}...\r"
         )
         sys.stdout.flush()
-        status = get_repo_status_summary(subdir, do_pull=do_pull, do_force=do_force)
+        status = get_repo_status_summary(
+            subdir,
+            do_pull=do_pull,
+            do_force=do_force,
+            do_commit_push=do_commit_push,
+        )
         if status:
             results.append(status)
     sys.stdout.write(" " * 80 + "\r")  # Clear the progress line
@@ -131,7 +161,10 @@ def report_multi_repo_status(
         return status
 
     def is_remarkable(r):
-        return compute_status(r["staged"], r["unstaged"], r["untracked"]) != "✔"
+        return (
+            compute_status(r["staged"], r["unstaged"], r["untracked"]) != "✔"
+            or r.get("sync_error") is not None
+        )
 
     def parse_last_activity(r):
         try:
@@ -152,8 +185,8 @@ def report_multi_repo_status(
         )
     )
     # Print org-mode table
-    header = "| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Branch               | Cached  |"
-    sep = "|----------------------+-------+--------+--------+---------------+---------------------+---------------------+---------|"
+    header = "| Repo                 | Ahead | Behind | Status | Last Activity | Pull                | Push      | Branch               | Cached  |"
+    sep = "|----------------------+-------+--------+--------+---------------+---------------------+-----------+---------------------+---------|"
     print(header)
     print(sep)
     for r in results:
@@ -180,9 +213,19 @@ def report_multi_repo_status(
                 else:
                     pull_col = "OK"
             else:
-                pull_col = "OK"
+                pull_col = str(pull_result)
+        
+        # Format push result / sync error
+        push_result = r.get("push_result")
+        sync_error = r.get("sync_error")
+        push_col = ""
+        if sync_error:
+            push_col = f"ERR: {sync_error[:20]}"
+        elif push_result is not None:
+            push_col = str(push_result)
+
         print(
-            f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {last_activity_col:<13} | {pull_col:<19} | {branch:<20} | {cached:<7} |"
+            f"| {repo_name:<20} | {ahead:<5} | {behind:<6} | {status:<6} | {last_activity_col:<13} | {pull_col:<19} | {push_col:<9} | {branch:<20} | {cached:<7} |"
         )
     # Print legend for Status column
     print("\nLegend for Status column:")
@@ -190,6 +233,22 @@ def report_multi_repo_status(
     print("  S  = Staged changes only")
     print("  U  = Unstaged changes only")
     print("  ?  = Untracked files only")
+
+    # Print Error Summary Table if any errors occurred
+    errors = [r for r in results if r.get("sync_error")]
+    if errors:
+        print("\n\n" + "=" * 80)
+        print("SYNC ERRORS SUMMARY")
+        print("=" * 80)
+        err_header = f"| {'Repo':<25} | {'Error Message':<50} |"
+        err_sep = f"|{'-' * 27}+{'-' * 52}|"
+        print(err_header)
+        print(err_sep)
+        for e in errors:
+            repo_name = e["name"][:25]
+            err_msg = str(e["sync_error"])[:50]
+            print(f"| {repo_name:<25} | {err_msg:<50} |")
+        print("=" * 80)
 
 
 if __name__ == "__main__":
@@ -214,10 +273,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Only show repos with activity in the last 3 months.",
     )
+    parser.add_argument(
+        "--commit-push",
+        action="store_true",
+        help="Commit and push local changes. Continues on failure and summarizes errors at the end.",
+    )
     args = parser.parse_args()
     report_multi_repo_status(
         args.parent_dir,
         do_pull=args.pull,
         do_force=args.no_cache,
         recent_only=args.recent_only,
+        do_commit_push=args.commit_push,
     )

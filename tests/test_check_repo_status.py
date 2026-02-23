@@ -280,4 +280,63 @@ def test_fallback_to_active_branch(mock_repo):
         out = fake_out.getvalue()
         assert "up to date" in out
         assert "feature-branch" in out
-        assert "Working directory clean" in out 
+        assert "Working directory clean" in out
+
+@patch('check_repo_status.multi_repo_status.Repo')
+def test_commit_push_logic(mock_repo):
+    from check_repo_status.multi_repo_status import get_repo_status_summary
+    repo = make_fake_repo(staged=1, unstaged=1, name='repo-sync')
+    mock_repo.return_value = repo
+    
+    # Mock git commands
+    repo.git = MagicMock()
+    repo.index.commit = MagicMock()
+    repo.remotes['origin'].push = MagicMock()
+    repo.untracked_files = ['new.file']
+    
+    status = get_repo_status_summary('path/repo-sync', do_commit_push=True)
+    
+    repo.git.add.assert_called_with(A=True)
+    repo.index.commit.assert_called_with("Auto-sync: local changes")
+    repo.remotes['origin'].push.assert_called_once()
+    assert status['push_result'] == "OK"
+
+@patch('check_repo_status.multi_repo_status.Repo')
+def test_commit_push_no_exit_on_failure(mock_repo):
+    from check_repo_status.multi_repo_status import get_repo_status_summary
+    repo = make_fake_repo(staged=0, unstaged=0, name='repo-fail')
+    mock_repo.return_value = repo
+    
+    # Simulate push failure
+    repo.remotes['origin'].push.side_effect = Exception("Push failed")
+    
+    status = get_repo_status_summary('path/repo-fail', do_commit_push=True)
+    assert status['push_result'] == "Error: Push failed"
+    assert "Push error" in status['sync_error']
+
+@patch('os.listdir')
+@patch('os.path.isdir')
+@patch('check_repo_status.multi_repo_status.Repo')
+def test_multi_repo_status_error_summary(mock_repo, mock_isdir, mock_listdir):
+    from check_repo_status.multi_repo_status import report_multi_repo_status
+    mock_listdir.return_value = ['repo-ok', 'repo-err']
+    mock_isdir.side_effect = lambda d: True
+    
+    repo_ok = make_fake_repo(name='repo-ok')
+    repo_err = make_fake_repo(name='repo-err')
+    
+    def repo_side_effect(path):
+        if 'repo-ok' in path: return repo_ok
+        if 'repo-err' in path: return repo_err
+        return make_fake_repo()
+    mock_repo.side_effect = repo_side_effect
+    
+    repo_err.remotes['origin'].push.side_effect = Exception("Major Crash")
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        report_multi_repo_status('parent', do_commit_push=True)
+        out = fake_out.getvalue()
+        assert "SYNC ERRORS SUMMARY" in out
+        assert "repo-err" in out
+        assert "Major Crash" in out
+ 

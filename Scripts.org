@@ -1,0 +1,272 @@
+#+setupfile: ~/.org-mode-goodies/setup.org
+
+** list_remotes.sh
+#+begin_src sh :results raw :wrap example :exports results 
+#!/bin/bash
+# Simplest script to list upstream and push-default for repos in ~/git-dir/RECENT
+
+ROOT=~/git-dir/RECENT
+
+find "$ROOT" -name .git -maxdepth 2 -type d -prune | while read -r gitdir; do
+    repo=$(dirname "$gitdir")
+    echo "Repo: ${repo#$ROOT/}"
+
+    # Upstream: Try 'upstream' remote, then tracking remote
+    u_url=$(git -C "$repo" remote get-url upstream 2>/dev/null)
+    if [ -z "$u_url" ]; then
+        u_remote=$(git -C "$repo" config "branch.$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null).remote")
+        [ -n "$u_remote" ] && u_url=$(git -C "$repo" remote get-url "$u_remote" 2>/dev/null)
+    fi
+
+    # Push Default
+    p_remote=$(git -C "$repo" config remote.pushDefault || git config --global remote.pushDefault)
+    p_url=$(git -C "$repo" remote get-url "$p_remote" 2>/dev/null)
+
+    echo "  Upstream: ${u_url:-N/A}"
+    echo "  Push-Def: ${p_url:-N/A} (${p_remote:-none})"
+    echo
+done
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Repo: AI.Machine-Learning
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/AI.Machine-Learning
+  Push-Def: N/A (none)
+
+Repo: System
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/System
+  Push-Def: N/A (none)
+
+Repo: XML
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/XML
+  Push-Def: N/A (none)
+
+Repo: Sara
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Sara
+  Push-Def: N/A (none)
+
+Repo: Flask
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Flask
+  Push-Def: N/A (none)
+
+Repo: Docker
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Docker
+  Push-Def: N/A (none)
+
+Repo: Inkscape.Drawings
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Inkscape.Drawings
+  Push-Def: N/A (none)
+
+Repo: Gimp
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Gimp
+  Push-Def: N/A (none)
+
+Repo: Networking
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Networking
+  Push-Def: N/A (none)
+
+Repo: Michelle
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Michelle
+  Push-Def: N/A (none)
+
+Repo: Mindmaps.WTF
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/MindMaps
+  Push-Def: N/A (none)
+
+Repo: Junk
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Junk
+  Push-Def: N/A (none)
+
+Repo: AsciiDoc
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/AsciiDoc
+  Push-Def: N/A (none)
+
+Repo: Finance-Investments
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Finance-Investments
+  Push-Def: N/A (none)
+
+Repo: Loquat
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Loquat
+  Push-Def: N/A (none)
+
+Repo: Mindmaps
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Mindmaps
+  Push-Def: N/A (none)
+
+Repo: AngularJS
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/AngularJS
+  Push-Def: N/A (none)
+
+Repo: Noweb-Files.Personal
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Noweb-Files.Personal
+  Push-Def: N/A (none)
+
+Repo: Noweb-Files
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Noweb-Files
+  Push-Def: N/A (none)
+
+Repo: Architecture.Diagrams
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Architecture.Diagrams
+  Push-Def: N/A (none)
+
+Repo: Lata
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Lata
+  Push-Def: N/A (none)
+
+Repo: Relocation
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Relocation
+  Push-Def: N/A (none)
+
+Repo: Javascript.React
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Javascript.React
+  Push-Def: N/A (none)
+
+Repo: Linux
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Linux
+  Push-Def: N/A (none)
+
+Repo: PlantUML
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/PlantUML
+  Push-Def: N/A (none)
+
+Repo: Node.js
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Node.js
+  Push-Def: N/A (none)
+
+Repo: JobHunt
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/JobHunt
+  Push-Def: N/A (none)
+
+Repo: Antlr
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Antlr
+  Push-Def: N/A (none)
+
+Repo: Roy
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Roy
+  Push-Def: N/A (none)
+
+Repo: Haskell
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Haskell
+  Push-Def: N/A (none)
+
+Repo: ImageMagick
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/ImageMagick
+  Push-Def: N/A (none)
+
+Repo: Go
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Go
+  Push-Def: N/A (none)
+
+Repo: VueJS
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/VueJS
+  Push-Def: N/A (none)
+
+Repo: JavaScript
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/JavaScript
+  Push-Def: N/A (none)
+
+Repo: Spring.Java
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Spring.Java
+  Push-Def: N/A (none)
+
+Repo: Amazon.AWS
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Amazon.AWS
+  Push-Def: N/A (none)
+
+Repo: Blogging
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Blogging
+  Push-Def: N/A (none)
+
+Repo: X-Windows
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/X-Windows
+  Push-Def: N/A (none)
+
+Repo: Kubernetes
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Kubernetes
+  Push-Def: N/A (none)
+
+Repo: SaltStack
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/SaltStack
+  Push-Def: N/A (none)
+
+Repo: Rust
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Rust
+  Push-Def: N/A (none)
+
+Repo: Python
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Python
+  Push-Def: N/A (none)
+
+Repo: Blender
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Blender
+  Push-Def: N/A (none)
+
+Repo: Kafka
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Kafka
+  Push-Def: N/A (none)
+
+Repo: Emacs
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Emacs
+  Push-Def: N/A (none)
+
+Repo: Speech.Synthesis
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Speech.Synthesis
+  Push-Def: N/A (none)
+
+Repo: GoogleCloud
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/GoogleCloud
+  Push-Def: N/A (none)
+
+Repo: Coding.Skills
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Coding.Skills
+  Push-Def: N/A (none)
+
+Repo: Anoobe
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Anoobe
+  Push-Def: N/A (none)
+
+Repo: Terraform
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Terraform
+  Push-Def: N/A (none)
+
+Repo: Java
+  Upstream: git@anoobe.com:/home/git/git-origin.NEW/Java
+  Push-Def: N/A (none)
+
+#+end_example
+
+** fix_remotes.sh
+#+begin_src sh :results raw :wrap example :exports results 
+#!/bin/bash
+# Script to set upstream to push-default URL (if upstream is missing) and delete push-default config.
+
+ROOT=~/git-dir/RECENT
+
+find "$ROOT" -name .git -maxdepth 2 -type d -prune | while read -r gitdir; do
+    repo=$(dirname "$gitdir")
+    
+    # Get the local push-default remote name
+    p_remote=$(git -C "$repo" config --local remote.pushDefault)
+    
+    # If push-default is not set locally, nothing to convert or delete (ignoring global)
+    [ -z "$p_remote" ] && continue
+
+    # If 'upstream' remote doesn't exist, create it from push-default
+    if ! git -C "$repo" remote get-url upstream &>/dev/null; then
+        p_url=$(git -C "$repo" remote get-url "$p_remote" 2>/dev/null)
+        if [ -n "$p_url" ]; then
+            git -C "$repo" remote add upstream "$p_url"
+            echo "${repo#$ROOT/}: Set upstream from $p_remote ($p_url)"
+        fi
+    fi
+
+    # Always delete the local push-default config
+    git -C "$repo" config --unset remote.pushDefault
+    echo "${repo#$ROOT/}: Deleted push-default ($p_remote)"
+done
+#+end_src
+
+#+RESULTS:
+#+begin_example
+#+end_example

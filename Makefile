@@ -19,8 +19,8 @@ run-multi:
 	uv run python -m check_repo_status.multi_repo_status $(ARGS)
 
 run:
-	PYTHONPATH=src make run-multi ARGS="~/git-dir/RECENT"
-	# PYTHONPATH=src make run-multi ARGS="~/git-dir/RECENT --pull --recent"
+	# PYTHONPATH=src make run-multi ARGS="~/git-dir/RECENT $(ARGS)"
+	PYTHONPATH=src make run-multi ARGS="~/git-dir/RECENT --pull --commit-push $(ARGS)"
 
 clean:
 	find . -type d -name '__pycache__' -exec rm -rf {} +
