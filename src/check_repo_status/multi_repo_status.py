@@ -5,6 +5,25 @@ import sys
 from datetime import datetime, timedelta
 
 
+def get_repo_last_activity_local(repo_path):
+    """Get just the local last commit date without fetching from remote.
+    
+    This is fast because it doesn't contact the remote server.
+    Returns (repo_name, last_activity_datetime) or None if not a valid repo.
+    """
+    try:
+        repo = Repo(repo_path)
+    except (InvalidGitRepositoryError, GitCommandError, Exception):
+        return None
+    if repo.bare:
+        return None
+    try:
+        last_commit_date = repo.head.commit.committed_datetime
+        return (os.path.basename(repo_path), last_commit_date)
+    except Exception:
+        return None
+
+
 def get_repo_status_summary(repo_path, do_pull=False, do_force=False, do_commit_push=False):
     try:
         repo = Repo(repo_path)
@@ -126,9 +145,40 @@ def report_multi_repo_status(
         for d in os.listdir(parent_dir)
         if os.path.isdir(os.path.join(parent_dir, d))
     ]
+    
+    # If recent_days filter is specified, first check local activity without fetching
+    # This is much faster because we don't contact remote servers
+    if recent_days is not None:
+        # Calculate cutoff date (use naive datetime to match both naive and aware datetimes)
+        cutoff_date = datetime.now() - timedelta(days=recent_days)
+        filtered_subdirs = []
+        total = len(subdirs)
+        for idx, subdir in enumerate(subdirs, 1):
+            sys.stdout.write(
+                f"Scanning repo {idx}/{total}: {os.path.basename(subdir)}...\r"
+            )
+            sys.stdout.flush()
+            local_info = get_repo_last_activity_local(subdir)
+            if local_info is not None:
+                repo_name, last_activity = local_info
+                # Handle timezone-aware vs naive datetime comparison
+                # If last_activity has tzinfo but cutoff_date doesn't, strip tzinfo
+                if last_activity.tzinfo is not None and cutoff_date.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=None)
+                if last_activity >= cutoff_date:
+                    filtered_subdirs.append(subdir)
+        sys.stdout.write(" " * 80 + "\r")  # Clear the progress line
+        sys.stdout.flush()
+        subdirs_to_check = filtered_subdirs
+        skipped_count = len(subdirs) - len(filtered_subdirs)
+    else:
+        subdirs_to_check = subdirs
+        skipped_count = 0
+    
+    # Now only fetch and get full status for repos that passed the filter
     results = []
-    total = len(subdirs)
-    for idx, subdir in enumerate(subdirs, 1):
+    total = len(subdirs_to_check)
+    for idx, subdir in enumerate(subdirs_to_check, 1):
         sys.stdout.write(
             f"Checking repo {idx}/{total}: {os.path.basename(subdir)}...\r"
         )
@@ -234,10 +284,21 @@ def report_multi_repo_status(
     print("  U  = Unstaged changes only")
     print("  ?  = Untracked files only")
 
+    # Print summary showing checked vs displayed repos
+    total_scanned = len(subdirs)
+    displayed = len(results)
+
+    print("\n" + "=" * 80)
+    if recent_days is not None:
+        print(f"SUMMARY: Scanned {total_scanned} repos, skipped {skipped_count} (older than {recent_days} days), showing {displayed} repos")
+    else:
+        print(f"SUMMARY: Checked {total_scanned} repos, showing {displayed} repos")
+    print("=" * 80)
+
     # Print Error Summary Table if any errors occurred
     errors = [r for r in results if r.get("sync_error")]
     if errors:
-        print("\n\n" + "=" * 80)
+        print("\n" + "=" * 80)
         print("SYNC ERRORS SUMMARY")
         print("=" * 80)
         err_header = f"| {'Repo':<25} | {'Error Message':<50} |"
