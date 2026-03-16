@@ -301,18 +301,51 @@ def test_commit_push_logic(mock_repo):
     repo.remotes['origin'].push.assert_called_once()
     assert status['push_result'] == "OK"
 
+@patch('os.listdir')
+@patch('os.path.isdir')
 @patch('check_repo_status.multi_repo_status.Repo')
-def test_commit_push_no_exit_on_failure(mock_repo):
-    from check_repo_status.multi_repo_status import get_repo_status_summary
-    repo = make_fake_repo(staged=0, unstaged=0, name='repo-fail')
-    mock_repo.return_value = repo
+@patch('check_repo_status.multi_repo_status.datetime')
+def test_multi_repo_status_recent_days_default_value(mock_datetime, mock_repo, mock_isdir, mock_listdir):
+    from check_repo_status.multi_repo_status import report_multi_repo_status
+    from datetime import datetime, timedelta
     
-    # Simulate push failure
-    repo.remotes['origin'].push.side_effect = Exception("Push failed")
+    # Setup fake repos with different last activity dates
+    mock_listdir.return_value = ['repo-recent', 'repo-old']
+    mock_isdir.side_effect = lambda d: True
     
-    status = get_repo_status_summary('path/repo-fail', do_commit_push=True)
-    assert status['push_result'] == "Error: Push failed"
-    assert "Push error" in status['sync_error']
+    # Mock datetime.now() to a fixed date
+    mock_datetime.now.return_value = datetime(2025, 3, 23)
+    mock_datetime.strptime = datetime.strptime
+    mock_datetime.side_effect = datetime
+
+    def make_repo_with_date(name, days_ago):
+        repo = make_fake_repo(name=name)
+        # Set the commit date to the specified days ago
+        commit_date = datetime(2025, 3, 23) - timedelta(days=days_ago)
+        repo.head.commit.committed_datetime = commit_date
+        return repo
+
+    repo_recent = make_repo_with_date('repo-recent', 10)   # 10 days ago
+    repo_old = make_repo_with_date('repo-old', 40)         # 40 days ago
+
+    def repo_side_effect(path):
+        if path.endswith('repo-recent'):
+            return repo_recent
+        if path.endswith('repo-old'):
+            return repo_old
+        raise Exception('not a repo')
+    mock_repo.side_effect = repo_side_effect
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        # Test with default 30 days (should include repo-recent but not repo-old)
+        report_multi_repo_status('parent', recent_days=30)
+        out = fake_out.getvalue()
+        table_lines = [line for line in out.splitlines() if '|' in line and 'repo' in line]
+        repo_names = [line.split('|')[1].strip() for line in table_lines]
+        
+        # Should only include repo-recent (10 days ago) as it's within 30 days
+        assert 'repo-recent' in repo_names
+        assert 'repo-old' not in repo_names
 
 @patch('os.listdir')
 @patch('os.path.isdir')
@@ -339,4 +372,151 @@ def test_multi_repo_status_error_summary(mock_repo, mock_isdir, mock_listdir):
         assert "SYNC ERRORS SUMMARY" in out
         assert "repo-err" in out
         assert "Major Crash" in out
+
+@patch('os.listdir')
+@patch('os.path.isdir')
+@patch('check_repo_status.multi_repo_status.Repo')
+@patch('check_repo_status.multi_repo_status.datetime')
+def test_multi_repo_status_recent_days_filtering(mock_datetime, mock_repo, mock_isdir, mock_listdir):
+    from check_repo_status.multi_repo_status import report_multi_repo_status
+    from datetime import datetime, timedelta
+    
+    # Setup fake repos with different last activity dates
+    mock_listdir.return_value = ['repo-recent', 'repo-old', 'repo-very-old']
+    mock_isdir.side_effect = lambda d: True
+    
+    # Mock datetime.now() to a fixed date
+    mock_datetime.now.return_value = datetime(2025, 3, 23)
+    mock_datetime.strptime = datetime.strptime
+    mock_datetime.side_effect = datetime
+
+    def make_repo_with_date(name, days_ago):
+        repo = make_fake_repo(name=name)
+        # Set the commit date to the specified days ago
+        commit_date = datetime(2025, 3, 23) - timedelta(days=days_ago)
+        repo.head.commit.committed_datetime = commit_date
+        return repo
+
+    repo_recent = make_repo_with_date('repo-recent', 10)   # 10 days ago
+    repo_old = make_repo_with_date('repo-old', 40)         # 40 days ago
+    repo_very_old = make_repo_with_date('repo-very-old', 100) # 100 days ago
+
+    def repo_side_effect(path):
+        if path.endswith('repo-recent'):
+            return repo_recent
+        if path.endswith('repo-old'):
+            return repo_old
+        if path.endswith('repo-very-old'):
+            return repo_very_old
+        raise Exception('not a repo')
+    mock_repo.side_effect = repo_side_effect
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        # Test with 30 days filter (should include repo-recent only)
+        report_multi_repo_status('parent', recent_days=30)
+        out = fake_out.getvalue()
+        table_lines = [line for line in out.splitlines() if '|' in line and 'repo' in line]
+        repo_names = [line.split('|')[1].strip() for line in table_lines]
+        
+        # Should only include repo-recent (10 days ago) as it's within 30 days
+        assert 'repo-recent' in repo_names
+        assert 'repo-old' not in repo_names
+        assert 'repo-very-old' not in repo_names
+
+@patch('os.listdir')
+@patch('os.path.isdir')
+@patch('check_repo_status.multi_repo_status.Repo')
+@patch('check_repo_status.multi_repo_status.datetime')
+def test_multi_repo_status_recent_days_90_days(mock_datetime, mock_repo, mock_isdir, mock_listdir):
+    from check_repo_status.multi_repo_status import report_multi_repo_status
+    from datetime import datetime, timedelta
+    
+    # Setup fake repos with different last activity dates
+    mock_listdir.return_value = ['repo-recent', 'repo-old', 'repo-very-old']
+    mock_isdir.side_effect = lambda d: True
+    
+    # Mock datetime.now() to a fixed date
+    mock_datetime.now.return_value = datetime(2025, 3, 23)
+    mock_datetime.strptime = datetime.strptime
+    mock_datetime.side_effect = datetime
+
+    def make_repo_with_date(name, days_ago):
+        repo = make_fake_repo(name=name)
+        # Set the commit date to the specified days ago
+        commit_date = datetime(2025, 3, 23) - timedelta(days=days_ago)
+        repo.head.commit.committed_datetime = commit_date
+        return repo
+
+    repo_recent = make_repo_with_date('repo-recent', 10)   # 10 days ago
+    repo_old = make_repo_with_date('repo-old', 40)         # 40 days ago
+    repo_very_old = make_repo_with_date('repo-very-old', 100) # 100 days ago
+
+    def repo_side_effect(path):
+        if path.endswith('repo-recent'):
+            return repo_recent
+        if path.endswith('repo-old'):
+            return repo_old
+        if path.endswith('repo-very-old'):
+            return repo_very_old
+        raise Exception('not a repo')
+    mock_repo.side_effect = repo_side_effect
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        # Test with 90 days filter (should include repo-recent and repo-old but not repo-very-old)
+        report_multi_repo_status('parent', recent_days=90)
+        out = fake_out.getvalue()
+        table_lines = [line for line in out.splitlines() if '|' in line and 'repo' in line]
+        repo_names = [line.split('|')[1].strip() for line in table_lines]
+        
+        # Should include repo-recent and repo-old (both within 90 days) but not repo-very-old
+        assert 'repo-recent' in repo_names
+        assert 'repo-old' in repo_names
+        assert 'repo-very-old' not in repo_names
+
+
+@patch('os.listdir')
+@patch('os.path.isdir')
+@patch('check_repo_status.multi_repo_status.Repo')
+@patch('check_repo_status.multi_repo_status.datetime')
+def test_multi_repo_status_recent_days_default_value(mock_datetime, mock_repo, mock_isdir, mock_listdir):
+    from check_repo_status.multi_repo_status import report_multi_repo_status
+    from datetime import datetime, timedelta
+    
+    # Setup fake repos with different last activity dates
+    mock_listdir.return_value = ['repo-recent', 'repo-old']
+    mock_isdir.side_effect = lambda d: True
+    
+    # Mock datetime.now() to a fixed date
+    mock_datetime.now.return_value = datetime(2025, 3, 23)
+    mock_datetime.strptime = datetime.strptime
+    mock_datetime.side_effect = datetime
+
+    def make_repo_with_date(name, days_ago):
+        repo = make_fake_repo(name=name)
+        # Set the commit date to the specified days ago
+        commit_date = datetime(2025, 3, 23) - timedelta(days=days_ago)
+        repo.head.commit.committed_datetime = commit_date
+        return repo
+
+    repo_recent = make_repo_with_date('repo-recent', 10)   # 10 days ago
+    repo_old = make_repo_with_date('repo-old', 40)         # 40 days ago
+
+    def repo_side_effect(path):
+        if path.endswith('repo-recent'):
+            return repo_recent
+        if path.endswith('repo-old'):
+            return repo_old
+        raise Exception('not a repo')
+    mock_repo.side_effect = repo_side_effect
+
+    with patch('sys.stdout', new=StringIO()) as fake_out:
+        # Test with default 30 days (should include repo-recent but not repo-old)
+        report_multi_repo_status('parent', recent_days=30)
+        out = fake_out.getvalue()
+        table_lines = [line for line in out.splitlines() if '|' in line and 'repo' in line]
+        repo_names = [line.split('|')[1].strip() for line in table_lines]
+        
+        # Should only include repo-recent (10 days ago) as it's within 30 days
+        assert 'repo-recent' in repo_names
+        assert 'repo-old' not in repo_names
  

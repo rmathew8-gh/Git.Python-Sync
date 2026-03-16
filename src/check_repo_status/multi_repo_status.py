@@ -119,7 +119,7 @@ def get_repo_status_summary(repo_path, do_pull=False, do_force=False, do_commit_
 
 
 def report_multi_repo_status(
-    parent_dir, do_pull=False, do_force=False, recent_only=False, do_commit_push=False
+    parent_dir, do_pull=False, do_force=False, recent_days=None, do_commit_push=False
 ):
     subdirs = [
         os.path.join(parent_dir, d)
@@ -172,10 +172,10 @@ def report_multi_repo_status(
         except Exception:
             return datetime.min
 
-    # Filter for recent-only if flag is set
-    if recent_only:
-        three_months_ago = datetime.now() - timedelta(days=90)
-        results = [r for r in results if parse_last_activity(r) >= three_months_ago]
+    # Filter by recent days if specified
+    if recent_days is not None:
+        cutoff_date = datetime.now() - timedelta(days=recent_days)
+        results = [r for r in results if parse_last_activity(r) >= cutoff_date]
     # Sort: remarkable first, then by last_activity desc, then by name
     results.sort(
         key=lambda r: (
@@ -269,9 +269,11 @@ if __name__ == "__main__":
         help="Force fetch from remote, ignoring cache.",
     )
     parser.add_argument(
-        "--recent-only",
-        action="store_true",
-        help="Only show repos with activity in the last 3 months.",
+        "--recent-days",
+        type=int,
+        nargs='?',
+        const=30,
+        help="Only show repos with activity in the last N days (default: 30 when flag is used without value).",
     )
     parser.add_argument(
         "--commit-push",
@@ -283,6 +285,6 @@ if __name__ == "__main__":
         args.parent_dir,
         do_pull=args.pull,
         do_force=args.no_cache,
-        recent_only=args.recent_only,
+        recent_days=args.recent_days,
         do_commit_push=args.commit_push,
     )
